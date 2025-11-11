@@ -141,35 +141,38 @@ function update() {
   for (let i = letters.length - 1; i >= 0; i--) {
     const l = letters[i];
 
-    const prevY = l.y;     // ← 前フレーム位置記録
     l.y += l.speed;
 
     ctx.fillStyle = plusKana.includes(l.text) ? "#ff66aa" : "#666";
     ctx.fillText(l.text, l.x, l.y);
 
-    const reachedBar = l.y + 20 >= player.y;
-    const justTouched = prevY + 20 < player.y && l.y + 20 >= player.y; // ← ここ重要
     const distX = Math.abs(l.x - player.x);
-
-    const hitRangePlus = player.width;
     const hitRangeMinus = player.width * 0.7;
 
-    // ✅ めるも → 通過すればOK（取りこぼし防止）
-    if (reachedBar && plusKana.includes(l.text) && distX <= hitRangePlus / 2) {
-      stock[l.text]++;
-      showMessage(l.text + "＋", "#ff66aa");
-      letters.splice(i, 1);
-      updateDisplay();
-      continue;
+    // ✅ め・る・も → 「文字に触れたら即カウント」
+    if (plusKana.includes(l.text)) {
+      const overlapX = distX <= player.width / 2;
+      const overlapY = l.y + 20 >= player.y && l.y - 20 <= player.y + player.height;
+      if (overlapX && overlapY) {
+        stock[l.text]++;
+        showMessage(l.text + "＋", "#ff66aa");
+        letters.splice(i, 1);
+        updateDisplay();
+        continue;
+      }
     }
 
-    // ✅ ぬ・ろ → バーを「触れた瞬間」だけ判定（下抜けたらノーカン）
-    if (justTouched && minusKana.includes(l.text) && distX <= hitRangeMinus / 2) {
-      score = Math.max(0, score - 1);
-      showMessage("－1", "#6699ff");
-      letters.splice(i, 1);
-      updateDisplay();
-      continue;
+    // ✅ ぬ・ろ → バーを「触れた瞬間」だけ判定（バー下はノーカン）
+    if (minusKana.includes(l.text)) {
+      const prevY = l.y - l.speed;
+      const justTouched = prevY + 20 < player.y && l.y + 20 >= player.y;
+      if (justTouched && distX <= hitRangeMinus / 2) {
+        score = Math.max(0, score - 1);
+        showMessage("－1", "#6699ff");
+        letters.splice(i, 1);
+        updateDisplay();
+        continue;
+      }
     }
 
     if (l.y > h + 30) letters.splice(i, 1);
@@ -212,12 +215,8 @@ function countdown() {
 window.addEventListener("touchstart", enableSound, { once: true });
 window.addEventListener("mousedown", enableSound, { once: true });
 
-window.addEventListener("touchmove", (e) => {
-  player.x = e.touches[0].clientX;
-});
-window.addEventListener("mousemove", (e) => {
-  player.x = e.clientX;
-});
+window.addEventListener("touchmove", (e) => { player.x = e.touches[0].clientX; });
+window.addEventListener("mousemove", (e) => { player.x = e.clientX; });
 
 setInterval(spawnLetter, 800);
 update();
@@ -226,4 +225,3 @@ countdown();
 
 </body>
 </html>
-
