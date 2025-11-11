@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -31,7 +31,6 @@
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      font-family: "Zen Maru Gothic", sans-serif;
       font-size: 46px;
       color: #ff66aa;
       font-weight: bold;
@@ -45,195 +44,186 @@
       60% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
       100% { transform: translate(-50%, -50%) scale(1); }
     }
-    canvas {
-      cursor: pointer;
-    }
+    canvas { cursor: pointer; }
   </style>
 </head>
 <body>
-  <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500&family=Potta+One&display=swap" rel="stylesheet">
 
-  <div id="score">スコア：0</div>
-  <div id="time">のこり：60秒</div>
-  <div id="stock">ストック：め0 る0 も0</div>
-  <div id="message"></div>
-  <canvas id="game"></canvas>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500&family=Potta+One&display=swap" rel="stylesheet">
 
-  <script>
-    const canvas = document.getElementById("game");
-    const ctx = canvas.getContext("2d");
-    let w = (canvas.width = window.innerWidth);
-    let h = (canvas.height = window.innerHeight);
+<div id="score">スコア：0</div>
+<div id="time">のこり：60秒</div>
+<div id="stock">ストック：め0 る0 も0</div>
+<div id="message"></div>
+<canvas id="game"></canvas>
 
-    const player = { 
-      x: w / 2, 
-      y: h - 70, 
-      width: Math.min(w * 0.22, 80), 
-      height: 16, 
-      color: "#ff8ec8", 
-      radius: 8 
-    };
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+let w = (canvas.width = window.innerWidth);
+let h = (canvas.height = window.innerHeight);
 
-    const plusKana = ["め", "る", "も"];
-    const minusKana = ["ぬ", "ろ"];
-    const allKana = [...plusKana, ...minusKana];
+const player = {
+  x: w / 2,
+  y: h - 70,
+  width: Math.min(w * 0.22, 80),
+  height: 16,
+  color: "#ff8ec8",
+  radius: 8
+};
 
-    let letters = [];
-    let score = 0;
-    let timeLeft = 60;
-    let stock = { "め": 0, "る": 0, "も": 0 };
-    let gameActive = true;
+const plusKana = ["め", "る", "も"];
+const minusKana = ["ぬ", "ろ"];
+const allKana = [...plusKana, ...minusKana];
 
-    const popSound = new Audio("https://cdn.jsdelivr.net/gh/joshwcomeau/assets/sounds/pop.mp3");
-    let soundEnabled = false;
+let letters = [];
+let score = 0;
+let timeLeft = 60;
+let stock = { "め": 0, "る": 0, "も": 0 };
+let gameActive = true;
 
-    function enableSound() {
-      if (!soundEnabled) {
-        popSound.play().then(() => {
-          popSound.pause();
-          popSound.currentTime = 0;
-          soundEnabled = true;
-        }).catch(() => {});
-      }
+const popSound = new Audio("https://cdn.jsdelivr.net/gh/joshwcomeau/assets/sounds/pop.mp3");
+let soundEnabled = false;
+
+function enableSound() {
+  if (!soundEnabled) {
+    popSound.play().then(() => {
+      popSound.pause();
+      popSound.currentTime = 0;
+      soundEnabled = true;
+    }).catch(() => {});
+  }
+}
+
+function showMessage(text, color = "#ff66aa") {
+  const msg = document.getElementById("message");
+  msg.textContent = text;
+  msg.style.color = color;
+  msg.style.display = "block";
+  msg.style.animation = "pop 0.5s ease";
+  setTimeout(() => (msg.style.display = "none"), 500);
+}
+
+function spawnLetter() {
+  if (!gameActive) return;
+  letters.push({
+    x: Math.random() * (w - 40),
+    y: -40,
+    text: allKana[Math.floor(Math.random() * allKana.length)],
+    speed: 2 + Math.random() * 3
+  });
+}
+
+function drawRoundedRect(x, y, width, height, radius, color) {
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(x + radius, y);
+  ctx.lineTo(x + width - radius, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+  ctx.lineTo(x + width, y + height - radius);
+  ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+  ctx.lineTo(x + radius, y + height);
+  ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+  ctx.lineTo(x, y + radius);
+  ctx.quadraticCurveTo(x, y, x + radius, y);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function update() {
+  ctx.clearRect(0, 0, w, h);
+  drawRoundedRect(player.x - player.width / 2, player.y, player.width, player.height, player.radius, player.color);
+
+  ctx.font = "34px 'Zen Maru Gothic', sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  for (let i = letters.length - 1; i >= 0; i--) {
+    const l = letters[i];
+
+    const prevY = l.y;     // ← 前フレーム位置記録
+    l.y += l.speed;
+
+    ctx.fillStyle = plusKana.includes(l.text) ? "#ff66aa" : "#666";
+    ctx.fillText(l.text, l.x, l.y);
+
+    const reachedBar = l.y + 20 >= player.y;
+    const justTouched = prevY + 20 < player.y && l.y + 20 >= player.y; // ← ここ重要
+    const distX = Math.abs(l.x - player.x);
+
+    const hitRangePlus = player.width;
+    const hitRangeMinus = player.width * 0.7;
+
+    // ✅ めるも → 通過すればOK（取りこぼし防止）
+    if (reachedBar && plusKana.includes(l.text) && distX <= hitRangePlus / 2) {
+      stock[l.text]++;
+      showMessage(l.text + "＋", "#ff66aa");
+      letters.splice(i, 1);
+      updateDisplay();
+      continue;
     }
 
-    function showMessage(text, color = "#ff66aa") {
-      const msg = document.getElementById("message");
-      msg.textContent = text;
-      msg.style.color = color;
-      msg.style.display = "block";
-      msg.style.animation = "pop 0.5s ease";
-      setTimeout(() => (msg.style.display = "none"), 500);
+    // ✅ ぬ・ろ → バーを「触れた瞬間」だけ判定（下抜けたらノーカン）
+    if (justTouched && minusKana.includes(l.text) && distX <= hitRangeMinus / 2) {
+      score = Math.max(0, score - 1);
+      showMessage("－1", "#6699ff");
+      letters.splice(i, 1);
+      updateDisplay();
+      continue;
     }
 
-    function spawnLetter() {
-      if (!gameActive) return;
-      letters.push({
-        x: Math.random() * (w - 40),
-        y: -40,
-        prevY: -40,
-        text: allKana[Math.floor(Math.random() * allKana.length)],
-        speed: 2 + Math.random() * 3
-      });
+    if (l.y > h + 30) letters.splice(i, 1);
+  }
+
+  if (stock["め"] > 0 && stock["る"] > 0 && stock["も"] > 0) {
+    stock["め"]--; stock["る"]--; stock["も"]--;
+    score++;
+    showMessage("めるも完成！＋1✨", "#ff3399");
+    if (soundEnabled) {
+      popSound.currentTime = 0;
+      popSound.play().catch(() => {});
     }
+    updateDisplay();
+  }
 
-    function drawRoundedRect(x, y, width, height, radius, color) {
-      const grad = ctx.createLinearGradient(x, y, x, y + height);
-      grad.addColorStop(0, "#ffb3de");
-      grad.addColorStop(1, color);
-      ctx.fillStyle = grad;
-      ctx.beginPath();
-      ctx.moveTo(x + radius, y);
-      ctx.lineTo(x + width - radius, y);
-      ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
-      ctx.lineTo(x + width, y + height - radius);
-      ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
-      ctx.lineTo(x + radius, y + height);
-      ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
-      ctx.lineTo(x, y + radius);
-      ctx.quadraticCurveTo(x, y, x + radius, y);
-      ctx.closePath();
-      ctx.fill();
-      ctx.shadowColor = "rgba(255, 182, 193, 0.5)";
-      ctx.shadowBlur = 6;
-      ctx.fill();
-      ctx.shadowBlur = 0;
+  if (gameActive) requestAnimationFrame(update);
+}
+
+function updateDisplay() {
+  document.getElementById("score").textContent = `スコア：${score}`;
+  document.getElementById("stock").textContent =
+    `ストック：め${stock["め"]} る${stock["る"]} も${stock["も"]}`;
+}
+
+function countdown() {
+  const timer = setInterval(() => {
+    if (!gameActive) return clearInterval(timer);
+    timeLeft--;
+    document.getElementById("time").textContent = `のこり：${timeLeft}秒`;
+    if (timeLeft <= 0) {
+      gameActive = false;
+      document.getElementById("message").textContent = `終了！スコア：${score}`;
+      document.getElementById("message").style.display = "block";
+      clearInterval(timer);
     }
+  }, 1000);
+}
 
-    function update() {
-      ctx.clearRect(0, 0, w, h);
-      drawRoundedRect(player.x - player.width / 2, player.y, player.width, player.height, player.radius, player.color);
+window.addEventListener("touchstart", enableSound, { once: true });
+window.addEventListener("mousedown", enableSound, { once: true });
 
-      ctx.font = "34px 'Zen Maru Gothic', sans-serif";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
+window.addEventListener("touchmove", (e) => {
+  player.x = e.touches[0].clientX;
+});
+window.addEventListener("mousemove", (e) => {
+  player.x = e.clientX;
+});
 
-      for (let i = letters.length - 1; i >= 0; i--) {
-        const l = letters[i];
-        l.prevY = l.y;
-        l.y += l.speed;
-        ctx.fillStyle = plusKana.includes(l.text) ? "#ff66aa" : "#666";
-        ctx.fillText(l.text, l.x, l.y);
+setInterval(spawnLetter, 800);
+update();
+countdown();
+</script>
 
-        // ✅ バーに触れた瞬間のみ判定
-        const justTouched =
-          l.prevY + 20 <= player.y &&
-          l.y + 20 > player.y;
-
-        const hitRangePlus = player.width;        // めるも → バーと同じ
-        const hitRangeMinus = player.width * 0.7; // ぬろ → バーの70%
-        const distX = Math.abs(l.x - player.x);
-
-        if (justTouched) {
-          if (plusKana.includes(l.text) && distX <= hitRangePlus / 2) {
-            stock[l.text]++;
-            showMessage(`${l.text}＋`, "#ff66aa");
-            letters.splice(i, 1);
-            updateDisplay();
-            continue;
-          }
-          if (minusKana.includes(l.text) && distX <= hitRangeMinus / 2) {
-            score = Math.max(0, score - 1);
-            showMessage("－1", "#6699ff");
-            letters.splice(i, 1);
-            updateDisplay();
-            continue;
-          }
-        }
-
-        if (l.y > h + 30) letters.splice(i, 1);
-      }
-
-      if (stock["め"] > 0 && stock["る"] > 0 && stock["も"] > 0) {
-        stock["め"]--; stock["る"]--; stock["も"]--;
-        score++;
-        showMessage("めるも完成！＋1✨", "#ff3399");
-        if (soundEnabled) {
-          popSound.currentTime = 0;
-          popSound.play().catch(() => {});
-        }
-        updateDisplay();
-      }
-
-      if (gameActive) requestAnimationFrame(update);
-    }
-
-    function updateDisplay() {
-      document.getElementById("score").textContent = `スコア：${score}`;
-      document.getElementById("stock").textContent =
-        `ストック：め${stock["め"]} る${stock["る"]} も${stock["も"]}`;
-    }
-
-    function countdown() {
-      const timer = setInterval(() => {
-        if (!gameActive) {
-          clearInterval(timer);
-          return;
-        }
-        timeLeft--;
-        document.getElementById("time").textContent = `のこり：${timeLeft}秒`;
-        if (timeLeft <= 0) {
-          gameActive = false;
-          document.getElementById("message").textContent = `終了！スコア：${score}`;
-          document.getElementById("message").style.display = "block";
-          clearInterval(timer);
-        }
-      }, 1000);
-    }
-
-    window.addEventListener("touchstart", enableSound, { once: true });
-    window.addEventListener("mousedown", enableSound, { once: true });
-
-    window.addEventListener("touchmove", (e) => {
-      player.x = e.touches[0].clientX;
-    });
-    window.addEventListener("mousemove", (e) => {
-      player.x = e.clientX;
-    });
-
-    setInterval(spawnLetter, 800);
-    update();
-    countdown();
-  </script>
 </body>
 </html>
+
