@@ -1,7 +1,5 @@
 <!DOCTYPE html>
-<html>
-
-<html>
+<html lang="ja">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -33,7 +31,7 @@
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      font-family: "Zen Maru Gothic", sans-serif; /* ← フォント統一 */
+      font-family: "Zen Maru Gothic", sans-serif;
       font-size: 46px;
       color: #ff66aa;
       font-weight: bold;
@@ -51,11 +49,8 @@
       cursor: pointer;
     }
   </style>
-
-  
 </head>
 <body>
-  <!-- 丸くて癖のないフォント -->
   <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500&family=Potta+One&display=swap" rel="stylesheet">
 
   <div id="score">スコア：0</div>
@@ -89,11 +84,9 @@
     let stock = { "め": 0, "る": 0, "も": 0 };
     let gameActive = true;
 
-    // 🎵 ポップ音（かわいい完成音）
     const popSound = new Audio("https://cdn.jsdelivr.net/gh/joshwcomeau/assets/sounds/pop.mp3");
     let soundEnabled = false;
 
-    // ✅ 最初の操作で音を有効化
     function enableSound() {
       if (!soundEnabled) {
         popSound.play().then(() => {
@@ -118,6 +111,7 @@
       letters.push({
         x: Math.random() * (w - 40),
         y: -40,
+        prevY: -40,
         text: allKana[Math.floor(Math.random() * allKana.length)],
         speed: 2 + Math.random() * 3
       });
@@ -150,36 +144,41 @@
       ctx.clearRect(0, 0, w, h);
       drawRoundedRect(player.x - player.width / 2, player.y, player.width, player.height, player.radius, player.color);
 
-      // 落ちてくる文字のフォントをやさしく丸く
       ctx.font = "34px 'Zen Maru Gothic', sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
 
       for (let i = letters.length - 1; i >= 0; i--) {
         const l = letters[i];
+        l.prevY = l.y;
         l.y += l.speed;
         ctx.fillStyle = plusKana.includes(l.text) ? "#ff66aa" : "#666";
         ctx.fillText(l.text, l.x, l.y);
 
-        if (
-          l.y + 20 > player.y &&
-          l.x > player.x - player.width / 2 &&
-          l.x < player.x + player.width / 2
-        ) {
-          const isMinus = minusKana.includes(l.text);
-          const strictArea = player.width * 0.4; 
-          const hitCenter = Math.abs(l.x - player.x) < strictArea / 2;
-          if (isMinus && !hitCenter) continue;
+        // ✅ バーに触れた瞬間のみ判定
+        const justTouched =
+          l.prevY + 20 <= player.y &&
+          l.y + 20 > player.y;
 
-          if (plusKana.includes(l.text)) {
+        const hitRangePlus = player.width;        // めるも → バーと同じ
+        const hitRangeMinus = player.width * 0.7; // ぬろ → バーの70%
+        const distX = Math.abs(l.x - player.x);
+
+        if (justTouched) {
+          if (plusKana.includes(l.text) && distX <= hitRangePlus / 2) {
             stock[l.text]++;
             showMessage(`${l.text}＋`, "#ff66aa");
-          } else {
+            letters.splice(i, 1);
+            updateDisplay();
+            continue;
+          }
+          if (minusKana.includes(l.text) && distX <= hitRangeMinus / 2) {
             score = Math.max(0, score - 1);
             showMessage("－1", "#6699ff");
+            letters.splice(i, 1);
+            updateDisplay();
+            continue;
           }
-          updateDisplay();
-          letters.splice(i, 1);
         }
 
         if (l.y > h + 30) letters.splice(i, 1);
@@ -222,7 +221,6 @@
       }, 1000);
     }
 
-    // ✅ 最初の操作で音を有効化
     window.addEventListener("touchstart", enableSound, { once: true });
     window.addEventListener("mousedown", enableSound, { once: true });
 
